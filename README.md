@@ -12,7 +12,7 @@
 
 ![punto 1 - validadicon](https://github.com/EduarXavier/prueba-semana-3/assets/142350836/0ba59760-1a9b-45bf-9b2e-b639b2a1a451)
 
-- Creación del Dockerfile para el uso del api
+- Creación del Dockerfile para el uso del api (Despues de la creación de la imagen se subió a mnikube con el comando --- minikube image load backen-prueba2 ---
   
 ![Creación del dockerfile](https://github.com/EduarXavier/prueba-semana-3/assets/142350836/dd911aa0-71c2-40f2-85aa-4cbbbec90d98)
 
