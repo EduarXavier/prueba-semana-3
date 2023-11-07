@@ -1,0 +1,170 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+  labels:
+    name: dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: dev
+  name: api-deploy
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-pod
+  template:
+    metadata:
+      labels:
+        app: backend-pod
+    spec:
+      containers:
+        - name: backend-container
+          image: backend-prueba2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: conf-backend
+                  key: url-database
+          volumeMounts:
+            - name: env-db
+              mountPath: /var/www/html/env
+      volumes:
+        - name: env-db
+          configMap:
+            name: conf-backend
+            items:
+              - key: url-database
+                path: .env.local
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sts-db
+  namespace: dev
+  labels:
+    name: sts-db
+spec:
+  selector:
+    matchLabels:
+      app: db-pod
+  serviceName: "db-service"
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: db-pod
+    spec:
+      containers:
+      - name: db-container
+        image: mariadb:10.5.8
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: secret-db
+                key: db-root-password
+        volumeMounts:
+          - name: db-secrets
+            mountPath: "/tmp/secrets"
+          - name: db-data
+            mountPath: "/var/lib/mysql"
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: pvc-volume
+        - name: db-secrets
+          secret:
+            secretName: secret-db
+            items:
+              - key: db-root-password
+                path: mysql-root-password.txt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: dev
+  labels:
+    app: backend-service
+spec:
+  type: ClusterIP
+  selector:
+    app: backend-pod
+  ports:
+    - protocol: TCP
+      port: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: dev
+  labels:
+    app: db-service
+spec:
+  type: ClusterIP
+  selector:
+    app: db-pod
+  ports:
+    - protocol: TCP
+      port: 3306
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conf-backend
+  namespace: dev
+  labels:
+    name: conf-backend
+data:
+  url-database: "mysql://root:root@db-service:3306/bdVotos?serverVersion=10.9.3-MariaDB"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-db
+  namespace: dev
+  labels:
+    name: secret-db
+type: Opaque
+data:
+  db-root-password: MTIzNDU2NzgK
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-volume
+  namespace: dev
+  labels:
+    name: pv-volume
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mysql"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-volume
+  namespace: dev
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      name: pv-volume
